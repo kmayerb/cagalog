@@ -17,7 +17,7 @@ class Cagalog:
     min_prev_default : float
         the minimum prevalence across samples for a feature to be considered
         after filtering
-        
+
 
     Methods
     -------
@@ -201,7 +201,7 @@ class Cagalog:
         DataFrame
 
         """
-        return self._clr_transform_via_mult_rep_method(self._pivot_metaphlan("phylum"))
+        return self._clr_transform_via_mult_rep_method(self._pivot_metaphlan(taxonomic_level))
 
     def clr_cags(self):
         """
