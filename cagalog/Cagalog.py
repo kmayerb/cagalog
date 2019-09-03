@@ -1,8 +1,14 @@
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from skbio.stats.composition import multiplicative_replacement
 from skbio.stats.composition import clr
+from sklearn import preprocessing
+from cagalog import transformation
+
+
+
 
 class Cagalog:
     """
@@ -218,6 +224,70 @@ class Cagalog:
         """
         return self._clr_transform_via_mult_rep_method(self._pivot_cags())
 
+    @staticmethod
+    def transform(self, df, method = None):
+        transform_func = \
+        {"box_cox"      : transformation.box_cox,
+         "yeo_johnson"  : transformation.yeo_johnson,
+         "quantile_norm": transformation.quantile_norm,
+         "rank_inv"     : transformation.rank_inv,
+         "clr"          : transformation.clr_with_mult_rep}[method]
+
+        transformed_df = pd.DataFrame(transform_func(df))
+        return(transformed_df)
+
+    @staticmethod
+    def compare_dists(dfs : list):
+        """
+        A convenience funtion for showing distributions before and after transformation.
+
+        Parameters
+        ----------
+        dfs : list
+            list of DataFrame
+        """
+        nr = dfs[0].shape[1] # The number of rows should match columns in df1 and df2
+        nc = len(dfs)            # The number of columns should match the number of DataFrames
+        fig, ax = plt.subplots(figsize=(30,30), nrows = nr, ncols = nc )
+        # populate down rows
+        for j in range(0,len(dfs)): # loop through dfs
+            for i in range(0,nr): # loop through columns of each df
+                ax[i][j].hist(dfs[j].iloc[:,i], density = True, color ="black")
+                #ax[i][j].set_xlim((-5,12))
+                #ax[i][j].set_ylim((0,.5))
+                #ax[i][j].grid(axis = "x")
+                ax[i][j].set_title(dfs[j].columns[i])
+                if i < nr-1:
+                    ax[i][j].tick_params(
+                        axis='x',          # changes apply to the x-axis
+                        which='both',      # both major and minor ticks are affected
+                        bottom=False,      # ticks along the bottom edge are off
+                        top=False,         # ticks along the top edge are off
+                        labelbottom=True) # labels along the bottom edge are off
+                ax[i][j].tick_params(
+                    axis='y',          # changes apply to the x-axis
+                    which='both',      # both major and minor ticks are affected
+                    left=False,        # ticks along the bottom edge are off
+                    top=False,         # ticks along the top edge are off
+                    labelleft=False)   # labels along the bottom edge are off
+        fig.tight_layout()
+        plt.show()
+        return(fig)
+
+    @classmethod
+    def mult_replace(self, df):
+        """
+        replace zeros with the minimum non zero value in the entire
+        matrix. Use multiplicaive replacement to ensure rows
+        sum close to 1.s
+        """
+        nzra = np.min(df.values.flatten()[df.values.flatten() > 0])
+        half_nzra = nzra/2
+        # multiplicative replacement adds small value to non-zero entries while maintaining row sums equal to 1
+        df_mr = pd.DataFrame(multiplicative_replacement(df, delta = half_nzra))
+
+        return(df_mr)
+
     @classmethod
     def _clr_transform_via_mult_rep_method(self, df):
         nzra = np.min(df.values.flatten()[df.values.flatten() > 0])
@@ -330,6 +400,103 @@ class Cagalog:
                 return(self.metaphlan_dict[taxonomic_level][key])
             except KeyError:
                 print("NO METAPHLAN MATRIX CREATED SEE clr_transform_metaphlan_via_mult_rep_method()")
+
+class RPKM:
+    """
+    Class for working with RPKM hdf5. Later, I envision this will get put back
+    into the main SM hdf5 and can be part of Cagalog.
+    """
+
+    def __init__(self, hdf5_fp):
+        self.min_prev_default          = .75
+        self.hdf5_fp                   = hdf5_fp
+        self.rpkm_df                   = None
+        self.rpkm_piv_df               = None
+        self.rpkm_piv_df_filt          = None
+        self.rpkm_piv_df_clr      = None
+        self.rpkm_piv_dfboxcox    = None
+        self.rpkm_piv_df_yeo      = None
+        self.rpkm_piv_df_quantile = None
+        self.rpkm_piv_df_rank_inv = None
+
+    def __str__(self):
+        return "RKPM object generated with {}".format(self.hdf5_fp)
+
+    def read_rpkm(self):
+        self.rpkm_df = pd.read_hdf(self.hdf5_fp, 'rpkm').reset_index()
+        return self.rpkm_df.copy()
+
+    def pivot_rpkm(self, df = None, pivot_on = "rpkm"):
+        """
+        Pivots long form data to wide form with samples (rows) x features (columns)
+        """
+        if df is None:
+            df = self.rpkm_df
+        piv_df = self.rpkm_df[["group", "sample",pivot_on ]].pivot(index='sample',
+                                                                   columns='group',
+                                                                   values= pivot_on ).fillna(0)
+        self.rpkm_piv_df = piv_df
+        return self.rpkm_piv_df.copy()
+
+    def _filter_prevalence(self, df = None, min_prev = None):
+        """
+        filter's column variable by min prevalence. i.e., X% percent of samples
+        must have this variable with a value above 0 (or matrix min value)
+
+        Parameters
+        ----------
+        df : DataFrame
+
+        min_prev : float
+            between 0 and 1
+
+        Returns
+        -------
+        DataFrame
+        """
+        if df is None:
+            df = self.rpkm_piv_df
+        if min_prev is None:
+            min_prev = self.min_prev_default
+        min_val = df.min().min()
+        to_keep = (df > min_val).mean() >= min_prev
+        print("Features passing a {} prevalence threshold: {:,} / {:,}".format(
+            min_prev ,
+            to_keep.sum(),
+            to_keep.shape[0]
+        ))
+        self.rpkm_piv_df_filt = df.loc[:, to_keep]
+        return self.rpkm_piv_df_filt.copy()
+
+    def transform(self, df = None, method = None):
+        if df is None:
+            df = self.rpkm_piv_df_filt
+
+        transform_func = \
+        {"box_cox"      : transformation.box_cox,
+         "yeo_johnson"  : transformation.yeo_johnson,
+         "quantile_norm": transformation.quantile_norm,
+         "rank_inv"     : transformation.rank_inv,
+         "clr"          : transformation.clr_with_mult_rep}[method]
+
+        transformed_df = pd.DataFrame(transform_func(df))
+        if method is "box_cox":
+            print("Performing Box-Cox Transform")
+            self.rpkm_piv_df_boxcox = transformed_df
+        if method is "yeo_johson":
+            print("Performing Yeo-Johsnon Transform")
+            self.rpkm_piv_df_yeo  = transformed_df
+        if method is "quantile_norm":
+            print("Performing Quantile Normalization Transform")
+            self.rpkm_piv_df_quantile = transformed_df
+        if method is "rank_int":
+            print("Performing rank-based inverse normal Transform")
+            self.rpkm_piv_df_rank_inv = transformed_df
+        if method is "clr":
+            print("Performing clr with multiplicative replacement Transform")
+            self.rpkm_piv_df_rank_clr = transformed_df
+
+        return(transformed_df)
 
 
 
