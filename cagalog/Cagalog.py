@@ -225,7 +225,7 @@ class Cagalog:
         return self._clr_transform_via_mult_rep_method(self._pivot_cags())
 
     @staticmethod
-    def transform(self, df, method = None):
+    def transform(df, method = None):
         transform_func = \
         {"box_cox"      : transformation.box_cox,
          "yeo_johnson"  : transformation.yeo_johnson,
@@ -271,7 +271,7 @@ class Cagalog:
                     top=False,         # ticks along the top edge are off
                     labelleft=False)   # labels along the bottom edge are off
         fig.tight_layout()
-        plt.show()
+        #plt.show()
         return(fig)
 
     @classmethod

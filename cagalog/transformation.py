@@ -6,46 +6,139 @@ import numpy as np
 import pandas as pd
 import scipy.stats as ss
 
+"""
+Contains method for transforming data.
+
+"""
+
 def mult_replace(df):
     """
-    replace zeros with the minimum non zero value in the entire
+    wrapper for skbio's multiplicative multiplicative_replacement
+
+    Parameters
+    ----------
+    df : DataFrame
+
+    Returns
+    -------
+    df_mr : DataFrame
+        modified via multiplicative replacement
+
+    Notes
+    -----
+    Replaces zeros with the minimum non zero value in the entire
     matrix. Use multiplicaive replacement to ensure rows
-    sum close to 1.s
+    sum close to 1.
+
     """
+    assert(isinstance(df, pd.DataFrame))
     nzra = np.min(df.values.flatten()[df.values.flatten() > 0])
     half_nzra = nzra/2
     # multiplicative replacement adds small value to non-zero entries while maintaining row sums equal to 1
     df_mr = pd.DataFrame(multiplicative_replacement(df, delta = half_nzra))
 
-    return(df_mr)
+    return df_mr
 
 def box_cox(df):
+    """
+    Wrapper for sklearn's preprocessing.PowerTransformer (Box-Cox), which is
+    only appropriate for strictly positive valued matrices. Zeros are replaced
+    by this wrapper.
+
+    Parameters
+    ----------
+    df : DataFrame
+
+
+    Returns
+    -------
+    DataFrame
+        Box-Cox transformed and
+        modified via multiplicative replacement if zeros are present
+
+    """
+    assert(isinstance(df, pd.DataFrame))
     if not df.min().min() > 0:
         df = mult_replace(df)
 
     pt = preprocessing.PowerTransformer(method='box-cox',
                                         standardize=False)
-    return pt.fit_transform(df)
+    return pd.DataFrame(pt.fit_transform(df))
 
 def yeo_johnson(df):
+    """
+    Wrapper for sklearn's preprocessing.PowerTransformer (Yeo-Johnson Option)
+    which can handle negative values
+
+
+    Parameters
+    ----------
+    df : DataFrame
+
+
+    Returns
+    -------
+    DataFrame
+        Yeo-Johnson transformed
+    """
+    assert(isinstance(df, pd.DataFrame))
     pt = preprocessing.PowerTransformer(method='yeo-johnson',
                                         standardize=False)
-    return pt.fit_transform(df)
+    return pd.DataFrame(pt.fit_transform(df))
 
 def quantile_norm(df):
+    """
+    Wrapper for sklearn's preprocessing.QuantileTransformer.
+
+    Parameters
+    ----------
+    df : DataFrame
+
+
+    Returns
+    -------
+    DataFrame
+        QuantileTransformer. transformed
+
+    Notes
+    -----
+    Outer bounds are very low probability regions of the normal distribution so
+    min and max are approximately -5 and +5 standard deviations away from mean,
+    which limits the utility of this transform.
+    """
+    assert(isinstance(df, pd.DataFrame))
     qt = preprocessing.QuantileTransformer(output_distribution='normal',
                                            random_state=0)
-    return qt.fit_transform(df)
+    return pd.DataFrame(qt.fit_transform(df))
 
 def rank_inv(df, stochastic = False):
+    assert(isinstance(df, pd.DataFrame))
     """
-    Custom rank-based inverse normal transfromation that does put min and max
-    so far away from the mean as preprocessing.QuantileTransformer
+    Wrapper for custom rank-based inverse normal transfromation that does put min and max
+    so far away from the mean as preprocessing.QuantileTransformer.
+
+    Parameters
+    ----------
+    df : DataFrames
+
+    stochastic : boolean
+        Set to false, otherwise ties and in particular zero values would be randomly ranked
+
+    Notes
+    -----
+    This was written Ed Mountjoy (Statistical Geneticist at Open Targets,
+    Wellcome Sanger Institute)
+    code copied from:
+    https://github.com/edm1/rank-based-INT (85cb37bb8e0d9e71bb9e8f801fd7369995b8aee7)
+
     """
 
-    return df.apply(lambda v : rank_INT(v, stochastic = stochastic), axis = 0)
+    r = df.apply(lambda v : rank_INT(v, stochastic = stochastic), axis = 0)
+    return pd.DataFrame(r)
 
 def clr_with_mult_rep(df):
+    assert(isinstance(df, pd.DataFrame))
+
     nzra = np.min(df.values.flatten()[df.values.flatten() > 0])
     half_nzra = nzra/2
     # multiplicative replacement adds small value to non-zero entries while maintaining row sums equal to 1
@@ -67,6 +160,7 @@ def rank_INT(series, c=3.0/8, stochastic=True):
         If stochastic is True ties are given rank randomly, otherwise ties will
         share the same value. NaN values are ignored.
 
+
         Args:
             param1 (pandas.Series):   Series of values to transform
             param2 (Optional[float]): Constant parameter (Bloms constant)
@@ -74,6 +168,14 @@ def rank_INT(series, c=3.0/8, stochastic=True):
 
         Returns:
             pandas.Series
+
+    Notes
+    -----
+    This was written Ed Mountjoy (Statistical Geneticist at Open Targets,
+    Wellcome Sanger Institute)
+    code copied from:
+    https://github.com/edm1/rank-based-INT (85cb37bb8e0d9e71bb9e8f801fd7369995b8aee7)
+
     """
 
     # Check input
