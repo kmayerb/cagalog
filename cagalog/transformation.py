@@ -36,7 +36,7 @@ def mult_replace(df):
     half_nzra = nzra/2
     # multiplicative replacement adds small value to non-zero entries while maintaining row sums equal to 1
     df_mr = pd.DataFrame(multiplicative_replacement(df, delta = half_nzra))
-
+    assert(np.all(df_mr.values > 0))
     return df_mr
 
 def box_cox(df):

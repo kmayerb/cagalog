@@ -435,7 +435,7 @@ class RPKM:
         piv_df = self.rpkm_df[["group", "sample",pivot_on ]].pivot(index='sample',
                                                                    columns='group',
                                                                    values= pivot_on ).fillna(0)
-        self.rpkm_piv_df = piv_df
+        self.rpkm_piv_df = pd.DataFrame(piv_df)
         return self.rpkm_piv_df.copy()
 
     def _filter_prevalence(self, df = None, min_prev = None):
