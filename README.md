@@ -2,7 +2,11 @@
 
 This repo is for developing tools for opening and interpretting the hdf5 output of [Golob-Minot geneshot](https://github.com/Golob-Minot/geneshot). The output of this NF workflow are documented in this [WIKI](https://github.com/Golob-Minot/geneshot/wiki/Getting-Started). 
 
-## Curently cagalog.volcanic has tools for summarizing number of CAGs, Rank-Abundance, N50, and for making volcano plots from corncob output
+## Curently 
+
+cagalog.volcanic (volcanic.py) has tools for summarizing number of CAGs, Rank-Abundance, N50, and for making volcano plots from corncob output
+
+Rvolcanic.R is R code for making more beautiful volcano plots
 
 ## Example Using IPython
 ```python
@@ -95,11 +99,13 @@ TRANQUILO, LOADING BIG STUFF FOR YOU
 9  29122  gene_a73a23d4_124aa    1354   2.000000e-65
 ```
 
+## Rank Abundance
+![cag_rank_abundance](https://user-images.githubusercontent.com/46639063/79419208-3a073300-7f6b-11ea-98b0-cc84516206de.png)
+
+## Show RVolcanic in Action
+
 
 # DEPRECIATED: cagalog - tools for working with the CAGalog
-
-
-
 
 
 
