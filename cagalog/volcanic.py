@@ -301,27 +301,28 @@ class StratoVolcano():
         except KeyError:
             return f"{k}-Gene Not Found"
 
-    def _lookup_cag(self, cag, verbose = True):
+    def _lookup_cag(self, cag, verbose = False):
         
         df = self.cag_to_gene[self.cag_to_gene["CAG"] == cag].copy() 
 
         df['tax_id'] = df['gene'].apply(lambda k: self._safely_gene_to_taxid_dict(k))
         
-        #cag_genes = df.merge(self.gene_to_taxid, how = "left", left_on = "gene", right_on = "gene")
         # provide scientific names from a pre-loaded dictionary       
         df['sciname'] = df['tax_id'].\
                                 apply(lambda k: self._safely_taxid_to_sciname_dict(k))
         if verbose == True:
             sys.stdout.write(";".join(map(str, collections.Counter(df['sciname']).most_common())) + "\n" )
-        
+       
         return df
-        #cags_genes_taxids = cag_genes.merge(self.taxid_to_annot, how = "left", left_on = "tax_id", right_on= "tax_d")
-        #print(cags_genes_taxids.sample(10))
-        #print(collections.Counter(cags_genes_taxids['tax_id']))
-        #         
+         
     def _lookup_cag_taxonomy_string(self,cag:int)->str:
         df = self._lookup_cag(cag = cag, verbose =False)
         ts = ";".join(map(str, collections.Counter(df['sciname']).most_common() ))
+        return ts 
+    
+    def _lookup_cag_genes_string(self,cag:int)->str:
+        df = self._lookup_cag(cag = cag, verbose =False)
+        ts = ";".join(map(str, df['gene']))
         return ts 
 
     def _lookup_cag_taxonomy_dict(self,cag:int)->dict:
@@ -339,16 +340,24 @@ class StratoVolcano():
                 cag = int(cag)
             cag_df = self._lookup_cag(cag)
             ts = self._lookup_cag_taxonomy_string(cag)
+            gs = self._lookup_cag_genes_string(cag)
+            most_common_ts = collections.Counter(cag_df.sciname).most_common()[0][0] 
+            cag_df['ts_mode'] = most_common_ts 
             cag_df['ts'] = str(ts)
+            cag_df['gs'] = str(gs)
+            cag_df = cag_df.rename(columns = {"CAG":"cag"})
             cag_dfs.append(cag_df)
-       
-        final_cag_df = pd.concat(cag_dfs).reset_index()
+        final_cag_df = pd.concat(cag_dfs).reset_index(drop = True)
         return final_cag_df
 
+    def _lookup_cag_list_summary(self, cags : list):
+        df = self._lookup_cag_list(cags)
+        df = df.groupby(["cag"]).first().reset_index()   
+        df = df[['cag','ts_mode','ts','gs']].copy()
+        return(df)
 
 
 if __name__ == "__main__":
-
 
     import os
     #from cagalog import volcanic

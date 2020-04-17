@@ -12,6 +12,7 @@ Rvolcanic.R is R code for making more beautiful volcano plots
 ```python
 import os
 from cagalog.volcanic import Seismic, StratoVolcano, Magma
+import pandas as pd
 
 fn_hdf5   = '/Volumes/LaCie/Users/kmayerbl/gscf/geneshot_cf_allfiles.results.hdf5'
 fn_crncob = '/Volumes/LaCie/Users/kmayerbl/gscf/stats/corncob.results.csv'
@@ -24,7 +25,7 @@ df = s._cag_size()
 
 mg = Magma(fn_crncob)
 mg.prep_volcano(var = 'mu.low_length', trim = 5000)
-df_low = mg.magma['mu.low_length']['volcano']
+df_low= mg.magma['mu.low_length']['volcano']
 
 cags = df_low.cag.to_list()
 print("TOP HITS BY P-VALUE")
@@ -37,12 +38,22 @@ print(cag_details_df )
 
 # To investigate indivdual CAGs. E.g., the hits table anticorrelated with
 negative_cags = df_low[df_low['est'] < 0]
+positive_cags = df_low[df_low['est'] > 0]
+
+negative_cags = negative_cags.apply(pd.to_numeric)
+positive_cags  = positive_cags.apply(pd.to_numeric) 
+
 sv._lookup_cag(9503) # Bifidobacterium longum
 sv._lookup_cag(7992) # Enterobacteriaceae
 
 # Or lookup the first 10 at once
-cag_details_df = sv._lookup_cag_list(negative_cags.cag.head(10).to_list())
-print(cag_details_df)
+cag_neg_details_df = sv._lookup_cag_list_summary(negative_cags.cag.head(20).to_list())
+cag_pos_details_df = sv._lookup_cag_list_summary(positive_cags.cag.head(20).to_list())
+negative_cags['cag'] = negative_cags.cag.astype(int).to_list()
+
+negative_cags.head(20).merge(cag_neg_details_df , how = "left", right_on = "cag", left_on= "cag").to_csv('low.weight.negative20.csv')
+positive_cags.head(20).merge(cag_pos_details_df , how = "left", right_on = "cag", left_on= "cag").to_csv('low.weight.positive20.csv')
+
 
 ```
 
