@@ -360,37 +360,9 @@ class StratoVolcano():
 if __name__ == "__main__":
 
     import os
-    #from cagalog import volcanic
-    fn_hdf5 = '/Volumes/LaCie/Users/kmayerbl/gscf/geneshot_cf_allfiles.results.hdf5'
-    assert os.path.isfile(fn_hdf5)
-    # Get Summary of CAGs    
-    # s = volcanic.Seismic(fn) 
-
-    s = Seismic(fn)
-    df = s._cag_size() 
-    #df.plot.scatter(x = 'log10rank', y = 'log10size')
-
-    fn = '/Volumes/LaCie/Users/kmayerbl/gscf/stats/corncob.results.csv'
-    assert os.path.isfile(fn)
-
-    #mg = volcanic.Magma(fn)
-    mg = Magma(fn)
-    mg.prep_volcano(var =  'mu.low_length', trim = 5000)
-    #mg.prep_volcano(var =  'mu.cf_statusControl' , trim = 5000)
-    df_low = mg.magma['mu.low_length']['volcano']
-    #df_cf  = mg.magma['mu.cf_statusControl']['volcano']
-    print(df_low.head(20))
-    
-    sv = StratoVolcano(fn_hdf5)
-    cag = df_low.cag.iloc[0]
-    sv._lookup_cag(cag)
-
-
-    # IPYTHON MODE
-
-    import os
     from cagalog.volcanic import Seismic, StratoVolcano, Magma
-    
+    import pandas as pd
+
     fn_hdf5   = '/Volumes/LaCie/Users/kmayerbl/gscf/geneshot_cf_allfiles.results.hdf5'
     fn_crncob = '/Volumes/LaCie/Users/kmayerbl/gscf/stats/corncob.results.csv'
 
@@ -402,27 +374,34 @@ if __name__ == "__main__":
 
     mg = Magma(fn_crncob)
     mg.prep_volcano(var = 'mu.low_length', trim = 5000)
-    df_low = mg.magma['mu.low_length']['volcano']
-    print(df_low.head(20))
+    df_low= mg.magma['mu.low_length']['volcano']
+
     cags = df_low.cag.to_list()
+    print("TOP HITS BY P-VALUE")
+    print(df_low.head(20))
+
     sv = StratoVolcano(fn_hdf5)
-    for cag in cags[0:10]:
-        cag = int(cag)
-        print(cag)
-        cag_df = sv._lookup_cag(cag)
-        print(cag_df)
+    # To get gene and tax_id for top hits
+    cag_details_df = sv._lookup_cag_list(cags[0:10])
+    print(cag_details_df )
 
+    # To investigate indivdual CAGs. E.g., the hits table anticorrelated with
+    negative_cags = df_low[df_low['est'] < 0]
+    positive_cags = df_low[df_low['est'] > 0]
 
-    #df.plot.scatter(x = 'log10rank', y = 'log10size')
-    
-    # mg._get_estimates(var =  'mu.low_length' )
-    # mg._get_p_values(var =  'mu.low_length' )
-    # df = mg._frame(var =  'mu.low_length')
-    # df.plot.scatter(x = 'est',y = 'pv') 
-    # mg._get_estimates(var =  'mu.cf_statusControl' )
-    # mg._get_p_values(var =  'mu.cf_statusControl' )
-    # df2 = mg._frame(var =  'mu.cf_statusControl')
-    # df2.plot.scatter(x = 'est',y = 'pv') 
+    negative_cags = negative_cags.apply(pd.to_numeric)
+    positive_cags  = positive_cags.apply(pd.to_numeric) 
+
+    sv._lookup_cag(9503) # Bifidobacterium longum
+    sv._lookup_cag(7992) # Enterobacteriaceae
+
+    # Or lookup the first 10 at once
+    cag_neg_details_df = sv._lookup_cag_list_summary(negative_cags.cag.head(20).to_list())
+    cag_pos_details_df = sv._lookup_cag_list_summary(positive_cags.cag.head(20).to_list())
+    negative_cags['cag'] = negative_cags.cag.astype(int).to_list()
+
+    negative_cags.head(20).merge(cag_neg_details_df , how = "left", right_on = "cag", left_on= "cag").to_csv('low.weight.negative20.csv')
+    positive_cags.head(20).merge(cag_pos_details_df , how = "left", right_on = "cag", left_on= "cag").to_csv('low.weight.positive20.csv')
 
     # # another easy way with pandas
     # fn = '/Volumes/LaCie/Users/kmayerbl/gscf/stats/corncob.results.csv'
