@@ -27,17 +27,27 @@ mg.prep_volcano(var = 'mu.low_length', trim = 5000)
 df_low = mg.magma['mu.low_length']['volcano']
 
 cags = df_low.cag.to_list()
+print("TOP HITS BY P-VALUE")
 print(df_low.head(20))
 
 sv = StratoVolcano(fn_hdf5)
-for cag in cags[0:10]:
-       cag = int(cag)
-       print(cag)
-       cag_df = sv._lookup_cag(cag)
-       print(cag_df)
+# To get gene and tax_id for top hits
+cag_details_df = sv._lookup_cag_list(cags[0:10])
+print(cag_details_df )
+
+# To investigate indivdual CAGs. E.g., the hits table anticorrelated with
+negative_cags = df_low[df_low['est'] < 0]
+sv._lookup_cag(9503) # Bifidobacterium longum
+sv._lookup_cag(7992) # Enterobacteriaceae
+
+# Or lookup the first 10 at once
+cag_details_df = sv._lookup_cag_list(negative_cags.cag.head(10).to_list())
+print(cag_details_df)
+
 ```
 
 ```
+TRANQUILO, LOADING LOOKUP TABLES INTO MEMORY
 NUMBER_OF_CAGS:            738631
 NUMBER_OF_GENES:           4746411
 NUMBER_OF_CAGS_W_ONE_GENE: 608999 (80.0)%
@@ -63,6 +73,7 @@ VARIABLES DETECTED:
         mu.low_length
 Progress[get coefs: mu.low_length]: [##########] 100% Done...Muito obrigado
 Progress[get p_values: mu.low_length]: [##########] 100% Done...Muito obrigado
+TOP HITS BY P-VALUE
            cag         pv       est
 275772  316545  13.994784  0.793159
 504493  579793  12.195587  1.383955
@@ -70,7 +81,13 @@ Progress[get p_values: mu.low_length]: [##########] 100% Done...Muito obrigado
 57578    65805  11.925344  0.693333
 396343  455312  11.866951  1.320289
 74249    84859  11.289885  0.760020
-...
+628249  722166  11.284005  1.379108
+62213    71102  10.804078  0.747341
+48239    55131  10.452281  0.646368
+368251  422983  10.361562  1.017406
+8088      9244  10.317737  0.595562
+637550  732871  10.304813  0.751999
+8315      9503  10.293219 -1.051609
 7484      8554  10.244988  0.617622
 6992      7992  10.232390 -0.864000
 57706    65951  10.217337  0.656462
@@ -78,26 +95,19 @@ Progress[get p_values: mu.low_length]: [##########] 100% Done...Muito obrigado
 448645  515510  10.120851  0.836006
 31565    36075  10.108978  0.724548
 62946    71942  10.089501  0.669708
-TRANQUILO, LOADING BIG STUFF FOR YOU
-316545
-      CAG                gene  tax_id  evalue
-0  316545  gene_aa7a2354_90aa       0     0.0
-579793
-      CAG                gene  tax_id  evalue
-0  579793  gene_75af0b22_23aa       0     0.0
-29122
-     CAG                 gene  tax_id         evalue
-0  29122   gene_fd0a3227_20aa       0   0.000000e+00
-1  29122  gene_dd4de7d5_103aa    1354   1.500000e-45
-2  29122  gene_f9a58099_149aa    1354   1.200000e-77
-3  29122   gene_dc27545f_27aa       0   0.000000e+00
-4  29122  gene_cff42072_131aa    1354   4.100000e-61
-5  29122  gene_859d78e3_141aa    1354   1.400000e-75
-6  29122  gene_b24b50c3_175aa    1354   1.300000e-83
-7  29122  gene_9783006f_240aa    1354  4.500000e-138
-8  29122  gene_0c0844a3_116aa    1354   3.900000e-55
-9  29122  gene_a73a23d4_124aa    1354   2.000000e-65
+TRANQUILO, LOADING LOOKUP TABLES INTO MEMORY
+('0-Name Not Found', 1)
+('0-Name Not Found', 1)
+('Enterococcus hirae', 8);('0-Name Not Found', 2)
+('Lachnospiraceae', 4)
+('Bifidobacterium breve', 1)
+('Peptoniphilus harei', 2);('Peptoniphilus', 1)
+('Enterococcus', 1)
+('Fusobacterium', 2);('0-Name Not Found', 1)
+('Klebsiella', 4);('0-Name Not Found', 1)
+('Bifidobacterium longum', 1)
 ```
+
 
 ## Rank Abundance
 ![cag_rank_abundance](https://user-images.githubusercontent.com/46639063/79419208-3a073300-7f6b-11ea-98b0-cc84516206de.png)

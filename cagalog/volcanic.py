@@ -133,7 +133,7 @@ class Magma:
             d = collections.OrderedDict()
             for line in fh:
                 cnt += 1
-                if cnt % 100000 == 0:
+                if cnt % 1000000 == 0:
                     self._update_progress(cnt/float(self.nlines),task_str = f"get coefs: {var}")
                 parameter, param_type, value, cag = line.strip().split(",")
                 if param_type == "estimate" and parameter == var:
@@ -153,7 +153,7 @@ class Magma:
             d = collections.OrderedDict()
             for line in fh:
                 cnt += 1
-                if cnt % 100000 == 0:
+                if cnt % 1000000 == 0:
                     self._update_progress(cnt/float(self.nlines),task_str = f"get p_values: {var}")
                 parameter, param_type, value, cag = line.strip().split(",")
                 if param_type == "p_value" and parameter == var:
@@ -225,31 +225,125 @@ class Magma:
 
 
 class StratoVolcano():
+    """
+    Class for evaluating individual CAG layers discovered 
+    from a volcano analysis.
+
+    Example
+    -------
+    import os
+    from cagalog.volcanic import Seismic, StratoVolcano, Magma 
+    fn_hdf5   = '/Volumes/LaCie/Users/kmayerbl/gscf/geneshot_cf_allfiles.results.hdf5' 
+    sv = StratoVolcano(fn_hdf5) 
+    sv._lookup_cag(1) 
+    """
     def __init__(self, filename:str = None):
+        """
+        filename : str
+            full path to the GeneShot Results File
+        """
         if filename is None:
             self.filename = '/Volumes/LaCie/Users/kmayerbl/gscf/geneshot_cf_allfiles.result.hdf5'
         else:
             self.filename = filename
 
-        print("TRANQUILO, LOADING BIG STUFF FOR YOU")
-        self._lock_and_load()
+        # <fn_taxid_dict> is the full path to lookup table mapping
+        # taxid as sciname
+        self.fn_taxid_dict = "/Users/kmayerbl/active/cagalog/taxdump/taxid_to_sciname.csv"
 
-    def _lock_and_load(self):
+        # Initialize Empty Objects
+        # <cag_to_gene> DataFrame (source: "/annot/gene/cag" )
+        self.cag_to_gene = None
+         # <gene_to_taxid_dict> dictionary (source: "/annot/gene/tax")
+        self.gene_to_taxid_dict = None 
+        # <taxid_to_sciname_dict> dictionary (source: loaed from csv e.g., self.fn_taxid_dict)
+        self.taxid_to_sciname_dict = None
+
+        # Load Objects
+        sys.stderr.write("TRANQUILO, LOADING LOOKUP TABLES INTO MEMORY\n")
+        self._load_cag_to_gene_df()
+        self._load_gene_to_taxid_dict()      
+        self._load_taxid_to_sciname_dict()
+        
+    def _load_gene_to_taxid_dict(self):
+        gene_to_taxid  = pd.read_hdf(self.filename,"/annot/gene/tax")
+        self.gene_to_taxid_dict = {k:v for k,v in zip(gene_to_taxid.gene, gene_to_taxid.tax_id)}
+        self.gene_to_taxid = gene_to_taxid
+
+    def _load_cag_to_gene_df(self):
         """
-        ONLY CALL THIS IF YOU NEED TO DO LOOKUPS. 
+        LOAD TO MEMORY FOR FAST LOOKUPS
         """
-        self.cag_to_gene    = pd.read_hdf(self.filename, "/annot/gene/cag")
-        self.gene_to_taxid  = pd.read_hdf(self.filename,"/annot/gene/tax")
-        self.taxid_to_annot = pd.read_hdf(self.filename, "/ref/taxonomy")
-    
-    def _lookup_cag(self,cag):
+        self.cag_to_gene    = pd.read_hdf(self.filename, "/annot/gene/cag")    
+
+    def _load_taxid_to_sciname_dict(self, fn = None):
+        if fn is None:
+            fn = self.fn_taxid_dict 
+        taxid_to_sciname_dict = dict()
+        with open(fn, "r") as fh:
+            for line in fh:
+                try:
+                    k,v = line.strip().split(",")
+                except ValueError:
+                    continue
+                taxid_to_sciname_dict[k] = v
+        self.taxid_to_sciname_dict = taxid_to_sciname_dict 
+
+    def _safely_taxid_to_sciname_dict(self,k):
+        try:
+            return self.taxid_to_sciname_dict[str(k)]
+        except KeyError:
+            return f"{k}-Name Not Found"
+
+    def _safely_gene_to_taxid_dict(self, k):
+        try:
+            return self.gene_to_taxid_dict[str(k)]
+        except KeyError:
+            return f"{k}-Gene Not Found"
+
+    def _lookup_cag(self, cag, verbose = True):
+        
         df = self.cag_to_gene[self.cag_to_gene["CAG"] == cag].copy() 
-        cag_genes = df.merge(self.gene_to_taxid, how = "left", left_on = "gene", right_on = "gene")
-        return cag_genes
-        #cags_genes_taxids = cag_genes.merge(self.taxid_to_annot, how = "left", left_on = "tax_id", right_on= "tax_id")
+
+        df['tax_id'] = df['gene'].apply(lambda k: self._safely_gene_to_taxid_dict(k))
+        
+        #cag_genes = df.merge(self.gene_to_taxid, how = "left", left_on = "gene", right_on = "gene")
+        # provide scientific names from a pre-loaded dictionary       
+        df['sciname'] = df['tax_id'].\
+                                apply(lambda k: self._safely_taxid_to_sciname_dict(k))
+        if verbose == True:
+            sys.stdout.write(";".join(map(str, collections.Counter(df['sciname']).most_common())) + "\n" )
+        
+        return df
+        #cags_genes_taxids = cag_genes.merge(self.taxid_to_annot, how = "left", left_on = "tax_id", right_on= "tax_d")
         #print(cags_genes_taxids.sample(10))
         #print(collections.Counter(cags_genes_taxids['tax_id']))
- 
+        #         
+    def _lookup_cag_taxonomy_string(self,cag:int)->str:
+        df = self._lookup_cag(cag = cag, verbose =False)
+        ts = ";".join(map(str, collections.Counter(df['sciname']).most_common() ))
+        return ts 
+
+    def _lookup_cag_taxonomy_dict(self,cag:int)->dict:
+        df = self._lookup_cag(cag = cag, verbose =False)
+        return {cag : collections.Counter(df['sciname']).most_common()}
+
+    def _lookup_cag_list(self, cags:list):
+        """
+        cags : list of ints
+            list of cag numbers
+        """
+        cag_dfs = list()
+        for cag in cags:
+            if not isinstance(cag, int):
+                cag = int(cag)
+            cag_df = self._lookup_cag(cag)
+            ts = self._lookup_cag_taxonomy_string(cag)
+            cag_df['ts'] = str(ts)
+            cag_dfs.append(cag_df)
+       
+        final_cag_df = pd.concat(cag_dfs).reset_index()
+        return final_cag_df
 
 
 
