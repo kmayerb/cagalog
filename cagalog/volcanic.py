@@ -360,7 +360,7 @@ class StratoVolcano():
 if __name__ == "__main__":
 
     import os
-    from cagalog.volcanic import Seismic, StratoVolcano, Magma
+    #from cagalog.volcanic import Seismic, StratoVolcano, Magma
     import pandas as pd
 
     fn_hdf5   = '/Volumes/LaCie/Users/kmayerbl/gscf/geneshot_cf_allfiles.results.hdf5'
